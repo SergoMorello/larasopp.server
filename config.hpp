@@ -14,6 +14,7 @@ class config {
 		config() {
 			if (!boost::filesystem::exists(file_config)) {
 				std::ofstream ofs(file_config);
+				ofs << "debug = true\n";
 				ofs << "api_port = 8123\n";
 				ofs << "websocket_port = 9002\n";
 				ofs << "websocket_threads = 1\n";

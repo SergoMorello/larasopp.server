@@ -7,6 +7,7 @@ g++ main.cpp -lpthread -lboost_system -lboost_filesystem -lssl -lcrypto
 
 ### Config
 ```
+debug = true
 api_port = 8123
 websocket_port = 9002
 websocket_threads = 1

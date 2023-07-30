@@ -19,6 +19,7 @@
 #include <boost/asio.hpp>
 #include "HTTPRequest.hpp"
 
+
 using nlohmann::json;
 
 typedef websocketpp::server<websocketpp::config::asio> server;
@@ -35,7 +36,7 @@ using websocketpp::frame::opcode::TEXT;
 using websocketpp::lib::thread;
 
 std::mutex m_send_lock;
-std::mutex m_response_lock;
+std::mutex m_connect_lock;
 std::mutex m_message_lock;
 
 struct connection_data {
@@ -67,6 +68,7 @@ class websocket_server {
 
 			m_server.clear_access_channels(websocketpp::log::alevel::all);
 			m_server.clear_error_channels(websocketpp::log::alevel::all);
+
 		}
 
 		~websocket_server() {
@@ -101,16 +103,21 @@ class websocket_server {
 		}
 		
 		void on_open(connection_hdl hdl) {
-			connection_data data;
+			std::lock_guard<std::mutex> lock(m_connect_lock);
+			try {
+				connection_data data;
 
-			std::smatch params;
-			typename server_type::connection_ptr con = m_server.get_con_from_hdl(hdl);
-			
-			std::string url = con->get_request().get_uri();
-			std::regex_match(url, params, std::regex(R"(/token=([^&]+))"));
-			data.token = this->urlDecode(params[1].str());
-			std::cout << "New connect: " << con->get_raw_socket().remote_endpoint().address() << " - " << data.token << std::endl;
-			m_connections[hdl] = data;
+				std::smatch params;
+				typename server_type::connection_ptr con = m_server.get_con_from_hdl(hdl);
+				
+				std::string url = con->get_request().get_uri();
+				std::regex_match(url, params, std::regex(R"(/token=([^&]+))"));
+				data.token = this->urlDecode(params[1].str());
+				std::cout << "New connect: " << con->get_raw_socket().remote_endpoint().address() << " - " << data.token << std::endl;
+				m_connections[hdl] = data;
+			} catch (std::exception& e) {
+				std::cout << e.what() << std::endl;
+			}
 		}
 
 		int num_host_connected(connection_hdl hdl) {
@@ -129,6 +136,7 @@ class websocket_server {
 		}
 
 		void on_close(connection_hdl hdl) {
+			std::lock_guard<std::mutex> lock(m_connect_lock);
 			std::cout << "Close connect" << std::endl;
 			m_connections.erase(hdl);
 		}
@@ -265,6 +273,7 @@ class websocket_server {
 				}
 			}
 		}
+		
 		void request_app(std::string path, json data, std::function<void(std::string response)> callback) {
 			std::thread t1([](config conf, std::string path, json data, std::function<void(std::string response)> callback){
 				int request_timeout = 10000;
@@ -296,8 +305,10 @@ class websocket_server {
 			}  catch(json::exception e) {
 				json_object["message"] = message;
 			}
-			this->request_app("/broadcasting/trigger/" + channel + "/" + event, json_object, [](std::string response){
-				//std::cout << response << '\n';
+			this->request_app("/broadcasting/trigger/" + channel + "/" + event, json_object, [=](std::string response){
+				if (conf.get("debug") == "true") {
+					std::cout << response << '\n';
+				}
 			});
 		}
 
