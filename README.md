@@ -1,5 +1,14 @@
 # Laravel websocket and api server
 
+#### JS Client
+```
+npm i larasopp
+```
+#### Laravel package
+```
+composer require larasopp/larasopp
+```
+
 ### Compile
 ```
 g++ main.cpp -lpthread -lboost_system -lboost_filesystem -lssl -lcrypto
